@@ -28,10 +28,7 @@ func ecSignHash(key *ecdsa.PrivateKey, hash types.Hash) (*types.Signature, error
 		return nil, fmt.Errorf("missing private key")
 	}
 	privKey, _ := btcec.PrivKeyFromBytes(key.D.Bytes())
-	sig, err := btcececdsa.SignCompact(privKey, hash.Bytes(), false)
-	if err != nil {
-		return nil, err
-	}
+	sig := btcececdsa.SignCompact(privKey, hash.Bytes(), false)
 	v := sig[0]
 	switch v {
 	case 27, 28:

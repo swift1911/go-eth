@@ -347,7 +347,9 @@ func Test_BlockNumberType_Unmarshal(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.want, *v)
+				if tt.want.Big().Cmp(v.Big()) != 0 {
+					t.Errorf("BlockNumber mismatch: expected %v, got %v", tt.want, v)
+				}
 				assert.Equal(t, tt.isTag, v.IsTag())
 				assert.Equal(t, tt.isEarliest, v.IsEarliest())
 				assert.Equal(t, tt.isLatest, v.IsLatest())

@@ -399,7 +399,6 @@ func (t Transaction) EncodeRLP() ([]byte, error) {
 		maxFeePerGas         = big.NewInt(0)
 		to                   = ([]byte)(nil)
 		value                = big.NewInt(0)
-		accessList           = (AccessList)(nil)
 		v                    = big.NewInt(0)
 		r                    = big.NewInt(0)
 		s                    = big.NewInt(0)
@@ -428,9 +427,6 @@ func (t Transaction) EncodeRLP() ([]byte, error) {
 	if t.Value != nil {
 		value = t.Value
 	}
-	if t.AccessList != nil {
-		accessList = t.AccessList
-	}
 	if t.Signature != nil {
 		v = t.Signature.V
 		r = t.Signature.R
@@ -438,50 +434,50 @@ func (t Transaction) EncodeRLP() ([]byte, error) {
 	}
 	switch t.Type {
 	case LegacyTxType:
-		return rlp.NewList(
-			rlp.NewUint(nonce),
-			rlp.NewBigInt(gasPrice),
-			rlp.NewUint(gasLimit),
-			rlp.NewBytes(to),
-			rlp.NewBigInt(value),
-			rlp.NewBytes(t.Input),
-			rlp.NewBigInt(v),
-			rlp.NewBigInt(r),
-			rlp.NewBigInt(s),
-		).EncodeRLP()
+		return rlp.List{
+			rlp.Uint(nonce),
+			bigInt(gasPrice),
+			rlp.Uint(gasLimit),
+			rlp.Bytes(to),
+			bigInt(value),
+			rlp.Bytes(t.Input),
+			bigInt(v),
+			bigInt(r),
+			bigInt(s),
+		}.EncodeRLP()
 	case AccessListTxType:
-		bin, err := rlp.NewList(
-			rlp.NewUint(chainID),
-			rlp.NewUint(nonce),
-			rlp.NewBigInt(gasPrice),
-			rlp.NewUint(gasLimit),
-			rlp.NewBytes(to),
-			rlp.NewBigInt(value),
-			rlp.NewBytes(t.Input),
+		bin, err := bigList(rlp.List{
+			rlp.Uint(chainID),
+			rlp.Uint(nonce),
+			bigInt(gasPrice),
+			rlp.Uint(gasLimit),
+			rlp.Bytes(to),
+			bigInt(value),
+			rlp.Bytes(t.Input),
 			&t.AccessList,
-			rlp.NewBigInt(v),
-			rlp.NewBigInt(r),
-			rlp.NewBigInt(s),
-		).EncodeRLP()
+			bigInt(v),
+			bigInt(r),
+			bigInt(s),
+		})
 		if err != nil {
 			return nil, err
 		}
 		return append([]byte{byte(t.Type)}, bin...), nil
 	case DynamicFeeTxType:
-		bin, err := rlp.NewList(
-			rlp.NewUint(chainID),
-			rlp.NewUint(nonce),
-			rlp.NewBigInt(maxPriorityFeePerGas),
-			rlp.NewBigInt(maxFeePerGas),
-			rlp.NewUint(gasLimit),
-			rlp.NewBytes(to),
-			rlp.NewBigInt(value),
-			rlp.NewBytes(t.Input),
-			&accessList,
-			rlp.NewBigInt(v),
-			rlp.NewBigInt(r),
-			rlp.NewBigInt(s),
-		).EncodeRLP()
+		bin, err := bigList(rlp.List{
+			rlp.Uint(chainID),
+			rlp.Uint(nonce),
+			bigInt(maxPriorityFeePerGas),
+			bigInt(maxFeePerGas),
+			rlp.Uint(gasLimit),
+			rlp.Bytes(to),
+			bigInt(value),
+			rlp.Bytes(t.Input),
+			&t.AccessList,
+			bigInt(v),
+			bigInt(r),
+			bigInt(s),
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -491,99 +487,139 @@ func (t Transaction) EncodeRLP() ([]byte, error) {
 	}
 }
 
+func bigInt(x *big.Int) rlp.BigInt {
+	var b rlp.BigInt
+	b.Set(x)
+	return b
+}
+
+func bigList(l rlp.List) ([]byte, error) {
+	b, err := l.EncodeRLP()
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
 //nolint:funlen
 func (t *Transaction) DecodeRLP(data []byte) (int, error) {
 	if len(data) == 0 {
 		return 0, fmt.Errorf("empty data")
 	}
 	var (
-		list                 *rlp.ListItem
-		chainID              = &rlp.UintItem{}
-		nonce                = &rlp.UintItem{}
-		gasPrice             = &rlp.BigIntItem{}
-		gasLimit             = &rlp.UintItem{}
-		maxPriorityFeePerGas = &rlp.BigIntItem{}
-		maxFeePerGas         = &rlp.BigIntItem{}
-		to                   = &rlp.StringItem{}
-		value                = &rlp.BigIntItem{}
-		input                = &rlp.StringItem{}
-		accessList           = &AccessList{}
-		v                    = &rlp.BigIntItem{}
-		r                    = &rlp.BigIntItem{}
-		s                    = &rlp.BigIntItem{}
+		chainID              = rlp.Uint(0)
+		nonce                = rlp.Uint(0)
+		gasPrice             = rlp.BigInt{}
+		gasLimit             = rlp.Uint(0)
+		maxPriorityFeePerGas = rlp.BigInt{}
+		maxFeePerGas         = rlp.BigInt{}
+		to                   = rlp.Bytes{}
+		value                = rlp.BigInt{}
+		input                = rlp.Bytes{}
+		accessList           = AccessList{}
+		v                    = rlp.BigInt{}
+		r                    = rlp.BigInt{}
+		s                    = rlp.BigInt{}
 	)
+	var list rlp.List
 	switch {
 	case data[0] >= 0x80: // LegacyTxType
 		t.Type = LegacyTxType
-		list = rlp.NewList(
-			nonce,
-			gasPrice,
-			gasLimit,
-			to,
-			value,
-			input,
-			v,
-			r,
-			s,
-		)
+		list = rlp.List{
+			&nonce,
+			&gasPrice,
+			&gasLimit,
+			&to,
+			&value,
+			&input,
+			&v,
+			&r,
+			&s,
+		}
 	case data[0] == byte(AccessListTxType):
 		t.Type = AccessListTxType
 		data = data[1:]
-		list = rlp.NewList(
-			chainID,
-			nonce,
-			gasPrice,
-			gasLimit,
-			to,
-			value,
-			input,
-			accessList,
-			v,
-			r,
-			s,
-		)
+		list = rlp.List{
+			&chainID,
+			&nonce,
+			&gasPrice,
+			&gasLimit,
+			&to,
+			&value,
+			&input,
+			&accessList,
+			&v,
+			&r,
+			&s,
+		}
 	case data[0] == byte(DynamicFeeTxType):
 		t.Type = DynamicFeeTxType
 		data = data[1:]
-		list = rlp.NewList(
-			chainID,
-			nonce,
-			maxPriorityFeePerGas,
-			maxFeePerGas,
-			gasLimit,
-			to,
-			value,
-			input,
-			accessList,
-			v,
-			r,
-			s,
-		)
+		list = rlp.List{
+			&chainID,
+			&nonce,
+			&maxPriorityFeePerGas,
+			&maxFeePerGas,
+			&gasLimit,
+			&to,
+			&value,
+			&input,
+			&accessList,
+			&v,
+			&r,
+			&s,
+		}
 	default:
 		return 0, fmt.Errorf("invalid transaction type: %d", data[0])
 	}
-	if _, err := rlp.DecodeTo(data, list); err != nil {
+	if _, err := rlp.Decode(data, &list); err != nil {
 		return 0, err
 	}
-	t.ChainID = &chainID.X
-	t.Nonce = &nonce.X
-	t.GasPrice = gasPrice.X
-	t.GasLimit = &gasLimit.X
-	t.MaxPriorityFeePerGas = maxPriorityFeePerGas.X
-	t.MaxFeePerGas = maxFeePerGas.X
-	t.To = AddressFromBytesPtr(to.Bytes())
-	t.Value = value.X
-	if len(input.Bytes()) > 0 {
-		t.Input = input.Bytes()
+	t.ChainID = chainID.Ptr()
+	if chainID.Get() == 0 {
+		t.ChainID = nil
 	}
-	if len(*accessList) > 0 {
-		t.AccessList = *accessList
+	t.Nonce = nonce.Ptr()
+	if nonce.Get() == 0 {
+		t.Nonce = nil
 	}
-	if v.X.Sign() != 0 || r.X.Sign() != 0 || s.X.Sign() != 0 {
+	t.GasPrice = gasPrice.Ptr()
+	if gasPrice.Get().Sign() == 0 {
+		t.GasPrice = nil
+	}
+	t.GasLimit = gasLimit.Ptr()
+	if gasLimit.Get() == 0 {
+		t.GasLimit = nil
+	}
+	t.MaxPriorityFeePerGas = maxPriorityFeePerGas.Ptr()
+	if maxPriorityFeePerGas.Get().Sign() == 0 {
+		t.MaxPriorityFeePerGas = nil
+	}
+	t.MaxFeePerGas = maxFeePerGas.Ptr()
+	if maxFeePerGas.Get().Sign() == 0 {
+		t.MaxFeePerGas = nil
+	}
+	if len(to.Get()) == 0 {
+		t.To = nil
+	} else {
+		t.To = AddressFromBytesPtr(to.Get())
+	}
+	if value.Get().Sign() == 0 {
+		t.Value = nil
+	} else {
+		t.Value = value.Get()
+	}
+	if len(input.Get()) > 0 {
+		t.Input = input.Get()
+	}
+	if len(accessList) > 0 {
+		t.AccessList = accessList
+	}
+	if v.Get().Sign() != 0 || r.Get().Sign() != 0 || s.Get().Sign() != 0 {
 		t.Signature = &Signature{
-			V: v.X,
-			R: r.X,
-			S: s.X,
+			V: v.Get(),
+			R: r.Get(),
+			S: s.Get(),
 		}
 	}
 	return len(data), nil
@@ -738,26 +774,26 @@ func (a *AccessList) Copy() AccessList {
 }
 
 func (a AccessList) EncodeRLP() ([]byte, error) {
-	l := rlp.NewList()
+	l := rlp.List{}
 	for _, tuple := range a {
 		tuple := tuple // Copy value because of loop variable reuse.
-		l.Append(&tuple)
+		l.Add(&tuple)
 	}
-	return rlp.Encode(l)
+	return l.EncodeRLP()
 }
 
 func (a *AccessList) DecodeRLP(data []byte) (int, error) {
-	d, n, err := rlp.Decode(data)
+	d, n, err := rlp.DecodeLazy(data)
 	if err != nil {
 		return 0, err
 	}
-	l, err := d.GetList()
+	l, err := d.List()
 	if err != nil {
 		return 0, err
 	}
 	for _, tuple := range l {
 		var t AccessTuple
-		if err := tuple.DecodeTo(&t); err != nil {
+		if err := tuple.Decode(&t); err != nil {
 			return 0, err
 		}
 		*a = append(*a, t)
@@ -775,37 +811,37 @@ func (a *AccessTuple) Copy() AccessTuple {
 }
 
 func (a AccessTuple) EncodeRLP() ([]byte, error) {
-	h := rlp.NewList()
+	l := rlp.List{}
 	for _, hash := range a.StorageKeys {
 		hash := hash
-		h.Append(&hash)
+		l.Add(rlp.Bytes(hash[:]))
 	}
-	return rlp.Encode(rlp.NewList(&a.Address, h))
+	return rlp.List{&a.Address, l}.EncodeRLP()
 }
 
 func (a *AccessTuple) DecodeRLP(data []byte) (int, error) {
-	d, n, err := rlp.Decode(data)
+	d, n, err := rlp.DecodeLazy(data)
 	if err != nil {
-		return n, err
+		return 0, err
 	}
-	l, err := d.GetList()
+	l, err := d.List()
 	if err != nil {
-		return n, err
+		return 0, err
 	}
 	if len(l) != 2 {
-		return n, fmt.Errorf("invalid access list tuple")
+		return 0, fmt.Errorf("invalid access list tuple")
 	}
-	if err := l[0].DecodeTo(&a.Address); err != nil {
-		return n, err
+	if err := l[0].Decode(&a.Address); err != nil {
+		return 0, err
 	}
-	h, err := l[1].GetList()
+	h, err := l[1].List()
 	if err != nil {
-		return n, err
+		return 0, err
 	}
 	for _, item := range h {
 		var hash Hash
-		if err := item.DecodeTo(&hash); err != nil {
-			return n, err
+		if err := item.Decode(&hash); err != nil {
+			return 0, err
 		}
 		a.StorageKeys = append(a.StorageKeys, hash)
 	}

@@ -158,15 +158,15 @@ func (t *Address) UnmarshalText(input []byte) error {
 }
 
 func (t Address) EncodeRLP() ([]byte, error) {
-	return rlp.Encode(rlp.NewBytes(t[:]))
+	return rlp.Encode(rlp.Bytes(t[:]))
 }
 
 func (t *Address) DecodeRLP(data []byte) (int, error) {
-	r, n, err := rlp.Decode(data)
+	r, n, err := rlp.DecodeLazy(data)
 	if err != nil {
 		return 0, err
 	}
-	a, err := r.GetBytes()
+	a, err := r.Bytes()
 	if err != nil {
 		return 0, err
 	}
@@ -366,15 +366,15 @@ func (t *Hash) UnmarshalText(input []byte) error {
 }
 
 func (t Hash) EncodeRLP() ([]byte, error) {
-	return rlp.Encode(rlp.NewBytes(t[:]))
+	return rlp.Encode(rlp.Bytes(t[:]))
 }
 
 func (t *Hash) DecodeRLP(data []byte) (int, error) {
-	r, n, err := rlp.Decode(data)
+	r, n, err := rlp.DecodeLazy(data)
 	if err != nil {
 		return 0, err
 	}
-	b, err := r.GetBytes()
+	b, err := r.Bytes()
 	if err != nil {
 		return 0, err
 	}

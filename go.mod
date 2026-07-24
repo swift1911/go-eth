@@ -1,7 +1,5 @@
 module github.com/defiweb/go-eth
 
-retract v0.4.0
-
 go 1.25
 
 require (
@@ -9,7 +7,7 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.6
 	github.com/btcsuite/btcd/btcutil v1.1.6
 	github.com/defiweb/go-anymapper v0.3.0
-	github.com/defiweb/go-rlp v0.3.0
+	github.com/defiweb/go-rlp v0.4.0
 	github.com/defiweb/go-sigparser v0.6.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tyler-smith/go-bip39 v1.1.0

@@ -150,19 +150,65 @@ func TestTransaction_RLP(t1 *testing.T) {
 func equalTx(t *testing.T, expected, got *Transaction) {
 	assert.Equal(t, expected.Type, got.Type)
 	assert.Equal(t, expected.To, got.To)
-	assert.Equal(t, expected.GasLimit, got.GasLimit)
-	assert.Equal(t, expected.GasPrice, got.GasPrice)
+	if !equalUintPtr(expected.GasLimit, got.GasLimit) {
+		t.Errorf("GasLimit: expected %d, got %d", ptrUint(expected.GasLimit), ptrUint(got.GasLimit))
+	}
 	assert.Equal(t, expected.Input, got.Input)
-	assert.Equal(t, expected.Nonce, got.Nonce)
-	assert.Equal(t, expected.Value, got.Value)
+	if !equalUintPtr(expected.Nonce, got.Nonce) {
+		t.Errorf("Nonce: expected %d, got %d", ptrUint(expected.Nonce), ptrUint(got.Nonce))
+	}
+	if !equalBigIntPtr(expected.Value, got.Value) {
+		t.Errorf("Value: expected %s, got %s", ptrBig(expected.Value), ptrBig(got.Value))
+	}
 	assert.Equal(t, expected.Signature, got.Signature)
 	if expected.Type != LegacyTxType {
-		assert.Equal(t, expected.ChainID, got.ChainID)
+		if !equalUintPtr(expected.ChainID, got.ChainID) {
+			t.Errorf("ChainID: expected %d, got %d", ptrUint(expected.ChainID), ptrUint(got.ChainID))
+		}
 	}
-	assert.Equal(t, expected.MaxPriorityFeePerGas, got.MaxPriorityFeePerGas)
-	assert.Equal(t, expected.MaxFeePerGas, got.MaxFeePerGas)
+	if !equalBigIntPtr(expected.MaxPriorityFeePerGas, got.MaxPriorityFeePerGas) {
+		t.Errorf("MaxPriorityFeePerGas: expected %s, got %s", ptrBig(expected.MaxPriorityFeePerGas), ptrBig(got.MaxPriorityFeePerGas))
+	}
+	if !equalBigIntPtr(expected.MaxFeePerGas, got.MaxFeePerGas) {
+		t.Errorf("MaxFeePerGas: expected %s, got %s", ptrBig(expected.MaxFeePerGas), ptrBig(got.MaxFeePerGas))
+	}
 	for i, accessTuple := range expected.AccessList {
 		assert.Equal(t, accessTuple.Address, got.AccessList[i].Address)
 		assert.Equal(t, accessTuple.StorageKeys, got.AccessList[i].StorageKeys)
 	}
+}
+
+func ptrUint(p *uint64) uint64 {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
+func ptrBig(p *big.Int) string {
+	if p == nil {
+		return "nil"
+	}
+	return p.String()
+}
+
+func equalUintPtr(a, b *uint64) bool {
+	return ptrUint(a) == ptrUint(b)
+}
+
+func equalBigIntPtr(a, b *big.Int) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		var s1, s2 int
+		if a != nil {
+			s1 = a.Sign()
+		}
+		if b != nil {
+			s2 = b.Sign()
+		}
+		return s1 == s2
+	}
+	return a.Cmp(b) == 0
 }

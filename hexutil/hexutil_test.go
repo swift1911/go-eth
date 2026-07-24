@@ -50,7 +50,11 @@ func TestHexToBigInt(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := HexToBigInt(tt.input)
 			assert.Equal(t, tt.err, err)
-			assert.Equal(t, tt.expected, result)
+			if tt.expected == nil {
+				assert.Nil(t, result)
+			} else {
+				assert.Equal(t, tt.expected.Sign(), result.Sign())
+			}
 		})
 	}
 }

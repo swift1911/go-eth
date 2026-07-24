@@ -19,7 +19,6 @@ func signingHash(t *types.Transaction) (types.Hash, error) {
 		maxFeePerGas         = big.NewInt(0)
 		to                   = ([]byte)(nil)
 		value                = big.NewInt(0)
-		accessList           = (types.AccessList)(nil)
 	)
 	if t.ChainID != nil {
 		chainID = *t.ChainID
@@ -45,24 +44,21 @@ func signingHash(t *types.Transaction) (types.Hash, error) {
 	if t.Value != nil {
 		value = t.Value
 	}
-	if t.AccessList != nil {
-		accessList = t.AccessList
-	}
 	switch t.Type {
 	case types.LegacyTxType:
-		list := rlp.NewList(
-			rlp.NewUint(nonce),
-			rlp.NewBigInt(gasPrice),
-			rlp.NewUint(gasLimit),
-			rlp.NewBytes(to),
-			rlp.NewBigInt(value),
-			rlp.NewBytes(t.Input),
-		)
+		list := rlp.List{
+			rlp.Uint(nonce),
+			bigInt(gasPrice),
+			rlp.Uint(gasLimit),
+			rlp.Bytes(to),
+			bigInt(value),
+			rlp.Bytes(t.Input),
+		}
 		if t.ChainID != nil && *t.ChainID != 0 {
-			list.Append(
-				rlp.NewUint(chainID),
-				rlp.NewUint(0),
-				rlp.NewUint(0),
+			list.Add(
+				rlp.Uint(chainID),
+				rlp.Uint(0),
+				rlp.Uint(0),
 			)
 		}
 		bin, err := list.EncodeRLP()
@@ -71,33 +67,33 @@ func signingHash(t *types.Transaction) (types.Hash, error) {
 		}
 		return Keccak256(bin), nil
 	case types.AccessListTxType:
-		bin, err := rlp.NewList(
-			rlp.NewUint(chainID),
-			rlp.NewUint(nonce),
-			rlp.NewBigInt(gasPrice),
-			rlp.NewUint(gasLimit),
-			rlp.NewBytes(to),
-			rlp.NewBigInt(value),
-			rlp.NewBytes(t.Input),
+		bin, err := rlp.List{
+			rlp.Uint(chainID),
+			rlp.Uint(nonce),
+			bigInt(gasPrice),
+			rlp.Uint(gasLimit),
+			rlp.Bytes(to),
+			bigInt(value),
+			rlp.Bytes(t.Input),
 			&t.AccessList,
-		).EncodeRLP()
+		}.EncodeRLP()
 		if err != nil {
 			return types.Hash{}, err
 		}
 		bin = append([]byte{byte(t.Type)}, bin...)
 		return Keccak256(bin), nil
 	case types.DynamicFeeTxType:
-		bin, err := rlp.NewList(
-			rlp.NewUint(chainID),
-			rlp.NewUint(nonce),
-			rlp.NewBigInt(maxPriorityFeePerGas),
-			rlp.NewBigInt(maxFeePerGas),
-			rlp.NewUint(gasLimit),
-			rlp.NewBytes(to),
-			rlp.NewBigInt(value),
-			rlp.NewBytes(t.Input),
-			&accessList,
-		).EncodeRLP()
+		bin, err := rlp.List{
+			rlp.Uint(chainID),
+			rlp.Uint(nonce),
+			bigInt(maxPriorityFeePerGas),
+			bigInt(maxFeePerGas),
+			rlp.Uint(gasLimit),
+			rlp.Bytes(to),
+			bigInt(value),
+			rlp.Bytes(t.Input),
+			&t.AccessList,
+		}.EncodeRLP()
 		if err != nil {
 			return types.Hash{}, err
 		}
@@ -106,4 +102,10 @@ func signingHash(t *types.Transaction) (types.Hash, error) {
 	default:
 		return types.Hash{}, fmt.Errorf("invalid transaction type: %d", t.Type)
 	}
+}
+
+func bigInt(x *big.Int) rlp.BigInt {
+	var b rlp.BigInt
+	b.Set(x)
+	return b
 }
